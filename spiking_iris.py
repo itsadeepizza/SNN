@@ -7,15 +7,12 @@ def gaussian(x, mu, sigma):
 
 class SpikingEncoder:
     def __init__(self, x_min, x_max, sigma, threshold, T, N=25):
-
-
         self.x_min = x_min
         self.x_max = x_max
         self.sigma = sigma
         self.threshold = threshold
         self.T = T
         self.N = N
-
         self.mu = np.linspace(x_min, x_max, N)
 
 
@@ -93,15 +90,14 @@ plt.show()
 # Extract sample from dataset
 i = 5
 sample = dataset.iloc[i]
-# Encode sample
 
+# Encode sample
 sepal_length_encoder.calculate_delays(sample["sepal.length"])
 sepal_width_encoder.calculate_delays(sample["sepal.width"])
 petal_length_encoder.calculate_delays(sample["petal.length"])
 petal_width_encoder.calculate_delays(sample["petal.width"])
 
-
-
+# Plot delays
 fig, ax = plt.subplots(2, figsize=(8, 8))
 ax[0].scatter(range(N), sepal_length_encoder.delays)
 ax[0].set_title("Delays")
