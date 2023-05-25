@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from tqdm import tqdm
 
 def gaussian(x, mu, sigma):
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sigma, 2.)))
@@ -63,6 +64,13 @@ class SpikingLayerLeaky:
         self.t += 1
         return self.S
 
+    def reset(self):
+        self.I = np.zeros(self.output_dim)
+        self.U = np.zeros(self.output_dim)
+        self.S = np.zeros(self.output_dim)
+        self.S_history = [[]] * output_dim
+        self.t = 0
+
 
 # HYPERPARAMETERS
 N = 25  # Number of neurons for features
@@ -91,58 +99,68 @@ print(dataset.head())
 
 
 # Extract sample from dataset
-for n_sample in range(len(dataset)):
-    sample = dataset.iloc[n_sample]
+for epoch in range(10000):
+    # Make a heatmap from the weights
 
-    # Encode sample
-    sepal_length_encoder.calculate_delays(sample["sepal.length"])
-    sepal_width_encoder.calculate_delays(sample["sepal.width"])
-    petal_length_encoder.calculate_delays(sample["petal.length"])
-    petal_width_encoder.calculate_delays(sample["petal.width"])
+    plt.imshow(layer.W, cmap='gray', interpolation='nearest')
+    plt.show()
+    total_reward = 0
+    for n_sample in tqdm(range(len(dataset))):
+        layer.reset()
+        sample = dataset.iloc[n_sample]
 
-    varieties = {"Setosa": 0, "Versicolor": 1, "Virginica": 2}
+        # Encode sample
+        sepal_length_encoder.calculate_delays(sample["sepal.length"])
+        sepal_width_encoder.calculate_delays(sample["sepal.width"])
+        petal_length_encoder.calculate_delays(sample["petal.length"])
+        petal_width_encoder.calculate_delays(sample["petal.width"])
 
-    target = varieties[sample["variety"]]
+        varieties = {"Setosa": 0, "Versicolor": 1, "Virginica": 2}
+
+        target = varieties[sample["variety"]]
 
 
 
-    # RUN NETWORK on sample for T time steps
-    U_by_time = []
-    output_memory = 0
-    for t in range(T):
-        input = np.concatenate((sepal_length_encoder.get_state(t), sepal_width_encoder.get_state(t), petal_length_encoder.get_state(t), petal_width_encoder.get_state(t)))
-        output = layer.forward(input)
-        output_memory += output
-    # Take max index of output as prediction
-    pred = np.argmax(output_memory)
-    # Calculate reward for output layer
-    rk = np.zeros(output_dim)
-    if pred == target:
-        # Reward correct prediction are all zeros except for the correct prediction
-        rk[pred] = 1
-    else:
-        # Reward incorrect prediction: +1 for correct target, -1 for incorrect prediction
-        rk[pred] = -1
-        rk[target] = 1
-    S_pre = [*sepal_length_encoder.S_history,
-             *sepal_width_encoder.S_history,
-             *petal_length_encoder.S_history,
-             *petal_width_encoder.S_history]
-    S_post = layer.S_history
+        # RUN NETWORK on sample for T time steps
+        U_by_time = []
+        output_memory = 0
+        for t in range(T):
+            input = np.concatenate((sepal_length_encoder.get_state(t), sepal_width_encoder.get_state(t), petal_length_encoder.get_state(t), petal_width_encoder.get_state(t)))
+            output = layer.forward(input)
+            output_memory += output
+        # Take max index of output as prediction
+        pred = np.argmax(output_memory)
+        # Calculate reward for output layer
+        rk = np.zeros(output_dim)
+        if pred == target:
+            # Reward correct prediction are all zeros except for the correct prediction
+            rk[pred] = 1
+            total_reward += 1
+        else:
+            # Reward incorrect prediction: +1 for correct target, -1 for incorrect prediction
+            rk[pred] = -1
+            rk[target] = 1
+        S_pre = [*sepal_length_encoder.S_history,
+                 *sepal_width_encoder.S_history,
+                 *petal_length_encoder.S_history,
+                 *petal_width_encoder.S_history]
+        S_post = layer.S_history
 
-    aP_plus = 1
-    aP_minus = 1
-    learning_rate = 1e-4
+        aP_plus = 1
+        aP_minus = 1
+        learning_rate = 1e-4
 
-    for i in range(len(S_pre)):
-        for j in range(len(S_post)):
-            cached_prod = layer.W[j, i] * ( 1 - layer.W[j, i])
-            for pre_spike in S_pre[i]:
-                for post_spike in S_post[j]:
-                    if post_spike - pre_spike > 0:
-                        layer.W[j, i] += aP_plus * cached_prod * learning_rate
-                    else:
-                        layer.W[j, i] -= aP_minus * cached_prod * learning_rate
+        for i in range(len(S_pre)):
+            for j in range(len(S_post)):
+                # cached_prod = layer.W[j, i] * ( 1 - layer.W[j, i])
+                for pre_spike in S_pre[i]:
+                    for post_spike in S_post[j]:
+                        if post_spike - pre_spike > 0:
+                            layer.W[j, i] += aP_plus * layer.W[j, i] * ( 1 - layer.W[j, i]) * learning_rate
+                        else:
+                            layer.W[j, i] -= aP_minus * layer.W[j, i] * ( 1 - layer.W[j, i]) * learning_rate
 
-    print(rk)
+        # print(rk)
+
+    print("Epoch: ", epoch, "Reward: ", total_reward / len(dataset))
 
