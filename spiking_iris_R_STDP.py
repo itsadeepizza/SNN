@@ -93,14 +93,23 @@ layer = SpikingLayerLeaky(input_dim, output_dim)
 
 # Load iris dataset and plot distribution for each feature
 dataset = pd.read_csv('iris.csv')
-# shuffle dataset
-dataset = dataset.sample(frac=1).reset_index(drop=True)
+# split into train and test
+train = dataset.sample(frac=0.8, random_state=0)
+test = dataset.drop(train.index)
+
 print(dataset.head())
 
 
 # Extract sample from dataset
 for epoch in range(10000):
     # Make a heatmap from the weights
+    if epoch % 2 == 0:
+        mode = "train"
+        # Shuffle dataset
+        dataset = train.sample(frac=1)
+    else:
+        mode = "test"
+        dataset = test.sample(frac=1)
 
     plt.imshow(layer.W, cmap='gray', interpolation='nearest')
     plt.show()
@@ -149,18 +158,17 @@ for epoch in range(10000):
         aP_plus = 1
         aP_minus = 1
         learning_rate = 1e-4
+        if mode == "train":
+            for i in range(len(S_pre)):
+                for j in range(len(S_post)):
+                    # cached_prod = layer.W[j, i] * ( 1 - layer.W[j, i])
+                    for pre_spike in S_pre[i]:
+                        for post_spike in S_post[j]:
+                            if post_spike - pre_spike > 0:
+                                layer.W[j, i] += aP_plus * layer.W[j, i] * ( 1 - layer.W[j, i]) * learning_rate * np.exp(-(post_spike - pre_spike) / 10) * rk[j]
+                            else:
+                                layer.W[j, i] -= aP_minus * layer.W[j, i] * ( 1 - layer.W[j, i]) * learning_rate * np.exp(-(pre_spike - post_spike) / 10) * rk[j]
 
-        for i in range(len(S_pre)):
-            for j in range(len(S_post)):
-                # cached_prod = layer.W[j, i] * ( 1 - layer.W[j, i])
-                for pre_spike in S_pre[i]:
-                    for post_spike in S_post[j]:
-                        if post_spike - pre_spike > 0:
-                            layer.W[j, i] += aP_plus * layer.W[j, i] * ( 1 - layer.W[j, i]) * learning_rate
-                        else:
-                            layer.W[j, i] -= aP_minus * layer.W[j, i] * ( 1 - layer.W[j, i]) * learning_rate
 
-        # print(rk)
-
-    print("Epoch: ", epoch, "Reward: ", total_reward / len(dataset))
+    print("Epoch: ", epoch, "Reward: ", total_reward / len(dataset), "Mode: ", mode)
 
