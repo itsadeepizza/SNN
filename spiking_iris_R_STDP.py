@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
+from slowspike import update_weights
 
 def gaussian(x, mu, sigma):
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sigma, 2.)))
@@ -56,10 +57,12 @@ class SpikingLayerLeaky:
         self.U = self.beta * (self.U + self.I - self.S)
         self.I = self.alpha * self.I + self.W @ input  # + self.V @ input
         self.S = np.where(self.U > self.theta, 1, 0)
+
         # Record spikes
         for i in range(self.output_dim):
             if self.S[i] == 1:
                 self.S_history[i].append(self.t)
+
         # Update time
         self.t += 1
         return self.S
@@ -111,8 +114,8 @@ for epoch in range(10000):
         mode = "test"
         dataset = test.sample(frac=1)
 
-    plt.imshow(layer.W, cmap='gray', interpolation='nearest')
-    plt.show()
+    # plt.imshow(layer.W, cmap='gray', interpolation='nearest')
+    # plt.show()
     total_reward = 0
     for n_sample in tqdm(range(len(dataset))):
         layer.reset()
@@ -155,20 +158,13 @@ for epoch in range(10000):
                  *petal_width_encoder.S_history]
         S_post = layer.S_history
 
-        aP_plus = 1
+        aP_plus = 1.5
         aP_minus = 1
         learning_rate = 1e-4
         if mode == "train":
-            for i in range(len(S_pre)):
-                for j in range(len(S_post)):
-                    # cached_prod = layer.W[j, i] * ( 1 - layer.W[j, i])
-                    for pre_spike in S_pre[i]:
-                        for post_spike in S_post[j]:
-                            if post_spike - pre_spike > 0:
-                                layer.W[j, i] += aP_plus * layer.W[j, i] * ( 1 - layer.W[j, i]) * learning_rate * np.exp(-(post_spike - pre_spike) / 10) * rk[j]
-                            else:
-                                layer.W[j, i] -= aP_minus * layer.W[j, i] * ( 1 - layer.W[j, i]) * learning_rate * np.exp(-(pre_spike - post_spike) / 10) * rk[j]
+            layer.W = update_weights(layer.W, S_pre, S_post, rk, aP_plus, aP_minus, learning_rate)
+  
 
+    print("Epoch: ", epoch // 2, "Reward: ", total_reward / len(dataset), "Mode: ", mode)
 
-    print("Epoch: ", epoch, "Reward: ", total_reward / len(dataset), "Mode: ", mode)
 
