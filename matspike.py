@@ -1,14 +1,22 @@
 import numpy as np
 
-
 def update_weights(W, S_pre, S_post, rk, learning_rate, aP_plus, aP_minus):
-    for i in range(len(S_pre)):
-        for j in range(len(S_post)):
-            # cached_prod = layer.W[j, i] * ( 1 - layer.W[j, i])
-            for pre_spike in S_pre[i]:
-                for post_spike in S_post[j]:
-                    if post_spike - pre_spike > 0:
-                        W[j, i] += aP_plus * W[j, i] * (1 - W[j, i]) * learning_rate * np.exp(-(post_spike - pre_spike) / 10) * rk[j]
-                    else:
-                        W[j, i] -= aP_minus * W[j, i] * (1 - W[j, i]) * learning_rate * np.exp(-(pre_spike - post_spike) / 10) * rk[j]
+    # Calculate the time difference between pre and post spikes
+    time_diff = S_post[:, np.newaxis] - S_pre
+
+    # Apply the conditions for updating the weights
+    positive_diff_mask = time_diff > 0
+    negative_diff_mask = ~positive_diff_mask
+
+    # Calculate the exponential factors
+    exp_factors = np.exp(-np.abs(time_diff) / 10)
+
+    # Calculate the weight updates
+    positive_updates = aP_plus * W.T * (1 - W.T) * learning_rate * exp_factors * rk
+    negative_updates = aP_minus * W.T * (1 - W.T) * learning_rate * exp_factors * rk
+
+    # Apply the updates to the weights
+    W += np.sum(positive_diff_mask * positive_updates, axis=-1).T
+    W -= np.sum(negative_diff_mask * negative_updates, axis=-1).T
+
     return W

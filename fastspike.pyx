@@ -1,14 +1,24 @@
-import numpy as np
+cimport numpy as cnp
+from libc.math cimport exp
 
+cpdef cnp.ndarray[double, ndim=2] update_weights(
+    cnp.ndarray[double, ndim=2] W,
+    list S_pre,
+    list S_post,
+    cnp.ndarray[double, ndim=1] rk,
+    double learning_rate,
+    double aP_plus,
+    double aP_minus
+):
+    cdef int i, j
+    cdef double pre_spike, post_spike
 
-def update_weights(W, S_pre, S_post, rk, aP_plus, aP_minus, learning_rate):
     for i in range(len(S_pre)):
         for j in range(len(S_post)):
-            # cached_prod = layer.W[j, i] * ( 1 - layer.W[j, i])
             for pre_spike in S_pre[i]:
                 for post_spike in S_post[j]:
                     if post_spike - pre_spike > 0:
-                        W[j, i] += aP_plus * W[j, i] * (1 - W[j, i]) * learning_rate * np.exp(-(post_spike - pre_spike) / 10) * rk[j]
+                        W[j, i] += aP_plus * W[j, i] * (1 - W[j, i]) * learning_rate * exp(-(post_spike - pre_spike) / 10) * rk[j]
                     else:
-                        W[j, i] -= aP_minus * W[j, i] * (1 - W[j, i]) * learning_rate * np.exp(-(pre_spike - post_spike) / 10) * rk[j]
+                        W[j, i] -= aP_minus * W[j, i] * (1 - W[j, i]) * learning_rate * exp(-(pre_spike - post_spike) / 10) * rk[j]
     return W
