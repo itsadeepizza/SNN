@@ -11,6 +11,10 @@ def gaussian(x, mu, sigma):
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sigma, 2.)))
 
 class SpikingEncoder:
+    """
+    Encode a scalar value into a spike train using gaussian functions
+    Cit: "Gaussian receptive field"
+    """
     def __init__(self, x_min, x_max, sigma, threshold, T, N=25):
         self.x_min = x_min
         self.x_max = x_max
@@ -38,22 +42,26 @@ class SpikingEncoder:
 
 
 class SpikingLayerLeaky:
+    """
+    Spiking layer using Forward Euler integration
+    """
     def __init__(self, input_dim, output_dim, alpha=0.5, beta=0.5, theta=1):
         self.input_dim = input_dim
         self.output_dim = output_dim
-        # self.V = np.random.randn(input_dim, output_dim)
-        # Initialize self.W using a beta distribution
-        self.W = np.random.beta(1, 1, (output_dim, input_dim)) # Weights
-        self.I = np.zeros(output_dim) # Current
-        self.U = np.zeros(output_dim) # Potential
-        self.S = np.zeros(output_dim) # Spike (output)
+        # self.V = np.random.randn(input_dim, output_dim) # For recurrent connections
+        # Initialize self.W using a beta distribution as it has to be positive
+        self.W = np.random.beta(1, 1, (output_dim, input_dim)).astype(np.float32) # Weights
+        self.I = np.zeros(output_dim, dtype=np.float32) # Current
+        self.U = np.zeros(output_dim, dtype=np.float32) # Potential
+        self.S = np.zeros(output_dim, dtype=np.float32) # Spike (output)
         # time
         self.t = 0
 
-        self.alpha = alpha # Decay for current
-        self.beta = beta # Decay for potential
-        self.theta = theta # Threshold
+        self.alpha = np.float32(alpha) # Decay for current
+        self.beta = np.float32(beta) # Decay for potential
+        self.theta = np.float32(theta) # Threshold
 
+        # History of spikes (for STDP)
         self.S_history = [[]] * self.output_dim
 
     def forward(self, input):
@@ -73,14 +81,15 @@ class SpikingLayerLeaky:
         return self.S
 
     def backward(self, rk_out):
-        rk_inp = np.abs(self.W).T @ rk_out
-
+        # rk_inp = (np.abs(self.W).T @ rk_out) / np.abs(self.W).sum(axis=0)
+        # Return a dummy rk_inp = 1
+        rk_inp = np.ones(self.input_dim)
         return rk_inp
 
     def reset(self):
-        self.I = np.zeros(self.output_dim)
-        self.U = np.zeros(self.output_dim)
-        self.S = np.zeros(self.output_dim)
+        self.I.fill(0)
+        self.U.fill(0)
+        self.S.fill(0)
         self.S_history = [[]] * self.output_dim
         self.t = 0
 
@@ -92,7 +101,7 @@ threshold = 0.01  # firing threshold for gaussians
 T = 100  # Number of time steps
 n_features = 4
 input_dim = N * n_features
-hidden_dim = 8
+hidden_dim = 20
 output_dim = 3
 
 # INIT LAYERS
@@ -113,6 +122,7 @@ train = dataset.sample(frac=0.8, random_state=0)
 test = dataset.drop(train.index)
 
 print(dataset.head())
+
 
 # Extract sample from dataset
 for epoch in range(10000):
@@ -158,7 +168,7 @@ for epoch in range(10000):
         # Take max index of output as prediction
         pred = np.argmax(output_memory)
         # Calculate reward for output layer
-        r_out = np.zeros(output_dim)
+        r_out = np.zeros(output_dim).astype(np.float32)
 
         if pred == target:
             # Reward correct prediction are all zeros except for the correct prediction
@@ -167,7 +177,8 @@ for epoch in range(10000):
         else:
             # Reward incorrect prediction: +1 for correct target, -1 for incorrect prediction
             r_out[pred] = -1
-            # r_out[target] = 1
+            r_out[target] = 1
+        r_hidden = np.ones(hidden_dim).astype(np.float32)
 
         S_input = [*sepal_length_encoder.S_history,
                    *sepal_width_encoder.S_history,
@@ -177,16 +188,29 @@ for epoch in range(10000):
         S_hidden = hidden_layer.S_history
         S_output = output_layer.S_history
 
-        aP_plus = 1.5
-        aP_minus = 1
-        learning_rate = 1e-4
+        # Appendix SNN-Based Target-Reaching Vehicle
+
+        aP_plus = 0.4
+        aP_minus = 1.5 * aP_plus
+        learning_rate = 4e-4
         if mode == "train":
+            output_deltaW = fastspike.get_delta_W(output_layer.W, S_hidden, S_output, r_out, learning_rate, aP_plus, aP_minus)
+            hidden_deltaW = fastspike.get_delta_W(hidden_layer.W, S_input, S_hidden, r_hidden, learning_rate, aP_plus, aP_minus)
+
+            output_layer.W += output_deltaW
+            hidden_layer.W += hidden_deltaW
             # hidden_layer.W = fastspike.update_weights(hidden_layer.W, S_input, S_hidden, output_layer.backward(r_out), learning_rate, aP_plus, aP_minus)
-            # output_layer.W = fastspike.update_weights(output_layer.W, S_hidden, S_output, r_out, learning_rate, aP_plus, aP_minus)
-            if random.random() < 0.5:
-                output_layer.W = fastspike.update_weights(output_layer.W, S_hidden, S_output, r_out, learning_rate, aP_plus, aP_minus)
-            else:
-                hidden_layer.W = fastspike.update_weights(hidden_layer.W, S_input, S_hidden, output_layer.backward(r_out), learning_rate, aP_plus, aP_minus)
+
+
+    # # Plot weights on a window
+    # if epoch % 2 == 0:
+    #     # Save image using matplotlib
+    #     plt.imshow(hidden_layer.W, cmap='gray', interpolation='nearest')
+    #     plt.show()
+    #
+    #     plt.imshow(output_layer.W, cmap='gray', interpolation='nearest')
+    #     plt.show()
+
 
 
     print("Epoch: ", epoch // 2, "Reward: ", total_reward / len(dataset), "Mode: ", mode)

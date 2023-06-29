@@ -53,7 +53,7 @@ class SpikingLayerLeaky:
         self.beta = beta # Decay for potential
         self.theta = theta # Threshold
 
-        self.S_history = [[]] * output_dim
+        self.S_history = [[]] * self.output_dim
 
     def forward(self, input):
         self.U = self.beta * (self.U + self.I - self.S)
@@ -73,7 +73,7 @@ class SpikingLayerLeaky:
         self.I = np.zeros(self.output_dim)
         self.U = np.zeros(self.output_dim)
         self.S = np.zeros(self.output_dim)
-        self.S_history = [[]] * output_dim
+        self.S_history = [[]] * self.output_dim
         self.t = 0
 
 
