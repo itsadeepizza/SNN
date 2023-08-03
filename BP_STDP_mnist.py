@@ -1,67 +1,15 @@
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from mnist_encoder import SpikingDataset, SpikingImageEncoder
 
 # ╔╦╗╔═╗╔╦╗╔═╗╦
 # ║║║║ ║ ║║║╣ ║
 # ╩ ╩╚═╝═╩╝╚═╝╩═╝
 
-def gaussian(x, mu, sigma):
-    return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sigma, 2.)))
 
 class SNN:
     pass
-
-class SpikingEncoder(SNN):
-    """
-    Encode a scalar value into a spike train using gaussian functions
-    Cit: "Gaussian receptive field"
-    """
-    def __init__(self, x_min, x_max, sigma, threshold, T, N=25):
-        self.x_min = x_min
-        self.x_max = x_max
-        self.sigma = sigma
-        self.threshold = threshold
-        self.T = T
-        self.N = N
-        self.output_dim = N
-        self.mu = np.linspace(x_min, x_max, N)
-
-    def gaussian(self, x):
-        return gaussian(np.ones(self.N) * x, self.mu, np.ones(self.N) * self.sigma)
-
-
-    def calculate_delays(self, x):
-        # Calculate delays for a given input x
-        delays = self.gaussian(x)
-        delays[delays < threshold] = -1
-        self.delays = np.rint((1 - delays) * self.T).astype(int)
-        self.S_history = [[self.delays[i]] if delays[i] != -1 else [] for i in range(self.N)]
-
-    def get_state(self, t):
-        # Return state of neurons at time t
-        spikes = (self.delays == t).astype(int)
-        return spikes
-
-
-class MultiEncoder(SNN):
-    def __init__(self, encoders):
-        self.encoders = encoders
-        self.output_dim = sum([encoder.output_dim for encoder in encoders])
-        # Last spikes
-        self.recorded_spikes = np.zeros((epsilon, self.output_dim))
-
-    def calculate_delays(self, x):
-        for encoder, x_i in zip(self.encoders, x):
-            encoder.calculate_delays(x_i)
-
-    def get_state(self, t):
-        spikes = np.concatenate([encoder.get_state(t) for encoder in self.encoders])
-        # Record spikes (all recorded spikes roll in array and the oldest are replaced by last spikes)
-        self.recorded_spikes = np.roll(self.recorded_spikes, -1, axis=0)
-        self.recorded_spikes[-1, :] = spikes
-        return spikes
-
 
 
 class SpikingLayer(SNN):
@@ -134,74 +82,47 @@ class SpikingLayer(SNN):
 # ╠═╣╚╦╝╠═╝║╣ ╠╦╝╠═╝╠═╣╠╦╝╠═╣║║║║╣  ║ ║╣ ╠╦╝╚═╗
 # ╩ ╩ ╩ ╩  ╚═╝╩╚═╩  ╩ ╩╩╚═╩ ╩╩ ╩╚═╝ ╩ ╚═╝╩╚═╚═╝
 
-N = 25  # Number of neurons for features
-sigma = 0.5  # variance of gaussians
+
 threshold = 0.01  # firing threshold for gaussians
 T = 100  # Number of time steps
-n_features = 4
-input_dim = N * n_features
-hidden_dim = 20
-output_dim = 3
-learning_rate = 0.1
+
+hidden_dim = 100
+output_dim = 10
+learning_rate = 0.005
 epsilon = 4
 
 # ╦ ╔╗╔ ╦ ╔╦╗
 # ║ ║║║ ║  ║
 # ╩ ╝╚╝ ╩  ╩
-
-
-
-# Initialize encoders
-sepal_length_encoder = SpikingEncoder(x_min=4, x_max=8, sigma=sigma, threshold=threshold, T=T, N=N)
-sepal_width_encoder = SpikingEncoder(x_min=2, x_max=4.5, sigma=sigma, threshold=threshold, T=T, N=N)
-petal_length_encoder = SpikingEncoder(x_min=1, x_max=7, sigma=sigma, threshold=threshold, T=T, N=N)
-petal_width_encoder = SpikingEncoder(x_min=0, x_max=2.5, sigma=sigma, threshold=threshold, T=T, N=N)
-
-multi_encoder = MultiEncoder([sepal_length_encoder, sepal_width_encoder, petal_length_encoder, petal_width_encoder])
 # Initialize output and hidden layer
-hidden_layer = SpikingLayer(multi_encoder, hidden_dim, theta=0.9)
+encoder_layer = SpikingImageEncoder(27, 27, T, epsilon=epsilon)
+hidden_layer = SpikingLayer(encoder_layer, hidden_dim, theta=0.01)
 output_layer = SpikingLayer(hidden_layer, output_dim, theta=5)
 
-# Load iris dataset and plot distribution for each feature
-dataset = pd.read_csv('dataset/iris.csv')
-# split into train and test
-train = dataset.sample(frac=0.8, random_state=0)
-test = dataset.drop(train.index)
-varieties = {"Setosa": 0, "Versicolor": 1, "Virginica": 2}
+spiking_dataset = SpikingDataset(("dataset/train-images.idx3-ubyte", "dataset/train-labels.idx1-ubyte"), T=T)
 # ╔╦╗╦═╗╔═╗╦╔╗╔
 #  ║ ╠╦╝╠═╣║║║║
 #  ╩ ╩╚═╩ ╩╩╝╚╝
 
+mode = "train"
 for epoch in range(10000):
-    # Make a heatmap from the weights
-    if epoch % 2 == 1:
-        mode = "train"
-        # Shuffle dataset
-        dataset = train.sample(frac=1)
-    else:
-        mode = "test"
-        dataset = test.sample(frac=1)
-
-    # plt.imshow(layer.W, cmap='gray', interpolation='nearest')
-    # plt.show()
+    print(f"Mode: {mode} Epoch: {epoch}")
     total_reward = 0
 
     correct_predictions = 0
-    for n_sample in tqdm(range(len(dataset))):
+    all_rows = list(range(len(spiking_dataset)))
+    subset = np.random.choice(all_rows, 100, replace=False)
+    # for i,(image_encode, label) in enumerate(tqdm(spiking_dataset)):
+    for i in tqdm(subset):
+        image_encode, label = spiking_dataset[i]
         hidden_layer.reset()
         output_layer.reset()
+        encoder_layer.load_bins(image_encode)
+        target = np.argmax(label)
 
-        sample = dataset.iloc[n_sample]
-        # Encode sample
-        multi_encoder.calculate_delays([sample['sepal.length'], sample['sepal.width'], sample['petal.length'], sample['petal.width']])
-        target = varieties[sample["variety"]]
-
-        # Generate label as one hot encoding
-        label = np.zeros(output_dim)
-        label[target] = 1
         total_output = np.zeros(output_dim)
         for t in range(T):
-            encoded_sample = multi_encoder.get_state(t)
+            encoded_sample = encoder_layer.get_state(t)
             middle_output = hidden_layer.forward(encoded_sample)
             output = output_layer.forward(middle_output)
             total_output += output
@@ -215,7 +136,9 @@ for epoch in range(10000):
         pred = np.argmax(total_output)
         if pred == target:
             correct_predictions += 1
-    accuracy = correct_predictions / len(dataset)
+    accuracy = correct_predictions / len(subset)
+    if accuracy > 0.9:
+        mode = "test"
     print()
     print(f"EPOCH {epoch//2} - {mode} - ACCURACY: {accuracy}")
 
