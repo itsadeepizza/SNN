@@ -86,9 +86,9 @@ class SpikingLayer(SNN):
 threshold = 0.01  # firing threshold for gaussians
 T = 100  # Number of time steps
 
-hidden_dim = 100
+hidden_dim = 500
 output_dim = 10
-learning_rate = 0.005
+learning_rate = 0.001
 epsilon = 4
 
 # ╦ ╔╗╔ ╦ ╔╦╗
@@ -96,7 +96,7 @@ epsilon = 4
 # ╩ ╝╚╝ ╩  ╩
 # Initialize output and hidden layer
 encoder_layer = SpikingImageEncoder(27, 27, T, epsilon=epsilon)
-hidden_layer = SpikingLayer(encoder_layer, hidden_dim, theta=0.01)
+hidden_layer = SpikingLayer(encoder_layer, hidden_dim, theta=0.9)
 output_layer = SpikingLayer(hidden_layer, output_dim, theta=5)
 
 spiking_dataset = SpikingDataset(("dataset/train-images.idx3-ubyte", "dataset/train-labels.idx1-ubyte"), T=T)
@@ -104,14 +104,24 @@ spiking_dataset = SpikingDataset(("dataset/train-images.idx3-ubyte", "dataset/tr
 #  ║ ╠╦╝╠═╣║║║║
 #  ╩ ╩╚═╩ ╩╩╝╚╝
 
+all_rows = list(range(len(spiking_dataset)))
+train = np.random.choice(all_rows, int(0.7*len(all_rows)), replace=False)
+test = np.array([i for i in all_rows if i not in train])
+
 mode = "train"
 for epoch in range(10000):
-    print(f"Mode: {mode} Epoch: {epoch}")
+    if epoch % 2 == 0:
+        mode = "test"
+    else:
+        mode = "train"
     total_reward = 0
 
     correct_predictions = 0
-    all_rows = list(range(len(spiking_dataset)))
-    subset = np.random.choice(all_rows, 100, replace=False)
+    if mode == "train":
+        subset = np.random.choice(train, 1000, replace=False)
+    else:
+        subset = np.random.choice(test, 300, replace=False)
+
     # for i,(image_encode, label) in enumerate(tqdm(spiking_dataset)):
     for i in tqdm(subset):
         image_encode, label = spiking_dataset[i]
@@ -137,9 +147,7 @@ for epoch in range(10000):
         if pred == target:
             correct_predictions += 1
     accuracy = correct_predictions / len(subset)
-    if accuracy > 0.9:
-        mode = "test"
     print()
-    print(f"EPOCH {epoch//2} - {mode} - ACCURACY: {accuracy}")
+    print(f"EPOCH {epoch // 2} - {mode} - ACCURACY: {accuracy}")
 
 
