@@ -70,6 +70,7 @@ class SpikingLayer(SNN):
         :return: csi
         """
         r = np.max(self.recorded_spikes, axis=0)
+        # TODO: check this
         csi = label - r
         return csi
 
@@ -115,7 +116,7 @@ def train():
     test_losses = []
 
     mode = "train"
-    for epoch in range(28):
+    for epoch in range(50):
         if epoch % 2 == 0:
             mode = "test"
         else:
@@ -160,19 +161,23 @@ def train():
         else:
             test_losses.append(accuracy)
 
-        fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-        ax.plot(train_losses, label="train")
-        ax.plot(test_losses, label="test")
-        ax.legend()
-        # Write an annotation with the hypermaters
-        ax.annotate(f"epsilon={epsilon},\n hidden_dim={hidden_dim},\n  theta0={theta_0},\n theta1={theta_1}\n learning_rate={learning_rate}",
-                    xy=(0.5, 1), xycoords='axes fraction',
-                    xytext=(0.5, 1.25), textcoords='axes fraction',
-                    horizontalalignment='center', verticalalignment='top',
-                    )
-        # Fit size
-        fig.tight_layout()
-        plt.savefig(f"plots/epsilon={epsilon}, hidden_dim={hidden_dim},  theta0={theta_0}, theta1={theta_1} learning_rate={learning_rate}.png")
+    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+    ax.plot(train_losses, label="train")
+    ax.plot(test_losses, label="test")
+    ax.legend()
+    # Write an annotation with the hypermaters
+    ax.annotate(f"epsilon={epsilon},\n hidden_dim={hidden_dim},\n  theta0={theta_0},\n theta1={theta_1}\n learning_rate={learning_rate}",
+                xy=(0.5, 1), xycoords='axes fraction',
+                xytext=(0.5, 1.25), textcoords='axes fraction',
+                horizontalalignment='center', verticalalignment='top',
+                )
+    # Fit size
+    fig.tight_layout()
+    plt.savefig(f"plots/epsilon={epsilon}, hidden_dim={hidden_dim},  theta0={theta_0}, theta1={theta_1} learning_rate={learning_rate}.png")
+
+theta_0 = 5
+theta_1 = 10
+train()
 
 for theta_0 in [0.01, 0.05, 0.1, 0.5, 1, 5, 10]:
     for theta_1 in [0.01, 0.05, 0.1, 0.5, 1, 5, 10]:
