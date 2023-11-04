@@ -9,6 +9,12 @@ np.seterr(divide='ignore', invalid='ignore')
 https://deepai.org/dataset/mnist
 Pixels are organized row-wise. Pixel values are 0 to 255.
 0 means background (white), 255 means foreground (black)
+
+
+Encoding based on :
+https://arxiv.org/pdf/1903.12272.pdf
+R. Vaila, J. Chiasson, V. Saxena
+Deep Convolutional Spiking Neural Networks for Image Classification
 """
 
 def visual_print(data_element):
@@ -238,39 +244,15 @@ class SpikingDataset():
             prev = element
 
         return bins
-        # return SpikingImageEncoder(W, H, bins)
-
-        # # TODO implement and use sparse matrix for this
-        # for spikes in bins:
-        #     bin_img = numpy.zeros(timings.shape)
-        #     for i in range(len(bin_img)):
-        #         for j in range(len(bin_img[0])):
-        #             for neuron in spikes:
-        #                 if numpy.array_equal([i, j], neuron):
-        #                     # bin_img[i][j] = 255
-        #                     bin_img[i][j] = 1
-        #     bin_imgs.append(bin_img)
-
-        # bins2d = numpy.array(bin_imgs)
-        # return bins2d
-
 
 
 if __name__ == "__main__":
+    # For testing
     spiking_dataset = SpikingDataset(("dataset/train-images.idx3-ubyte", "dataset/train-labels.idx1-ubyte"))
     for image_encoded, label in tqdm(spiking_dataset):
         pass
 
 
-    #save_img(conv2d(image,kernel1), 'conv1.png')
-    #save_img(kernel2, 'k2.png')
-
-    #dataloader = DataLoader(dataset=dataset, batch_size=4, shuffle=True)
-    #dataiter = iter(dataloader)
-
-    #data = dataiter.next()
-    #print("label shape ",data[1].shape)
-    #print("label",data[1])
 
 
 

@@ -1,11 +1,12 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
-import slowspike
-import fastspike
-import matspike
-import random
+from fastspike import fastspike
+
+"""
+We tested a multilayer approach
+It didn't work well
+"""
 
 def gaussian(x, mu, sigma):
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sigma, 2.)))
@@ -116,7 +117,7 @@ hidden_layer = SpikingLayerLeaky(input_dim, hidden_dim)
 output_layer = SpikingLayerLeaky(hidden_dim, output_dim)
 
 # Load iris dataset and plot distribution for each feature
-dataset = pd.read_csv('iris.csv')
+dataset = pd.read_csv('./dataset/iris.csv')
 # split into train and test
 train = dataset.sample(frac=0.8, random_state=0)
 test = dataset.drop(train.index)
@@ -201,15 +202,6 @@ for epoch in range(10000):
             hidden_layer.W += hidden_deltaW
             # hidden_layer.W = fastspike.update_weights(hidden_layer.W, S_input, S_hidden, output_layer.backward(r_out), learning_rate, aP_plus, aP_minus)
 
-
-    # # Plot weights on a window
-    # if epoch % 2 == 0:
-    #     # Save image using matplotlib
-    #     plt.imshow(hidden_layer.W, cmap='gray', interpolation='nearest')
-    #     plt.show()
-    #
-    #     plt.imshow(output_layer.W, cmap='gray', interpolation='nearest')
-    #     plt.show()
 
 
 

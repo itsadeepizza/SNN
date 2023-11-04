@@ -1,10 +1,7 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
-import slowspike
-import fastspike
-import matspike
+from fastspike import fastspike
 
 def gaussian(x, mu, sigma):
     return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sigma, 2.)))
@@ -97,7 +94,7 @@ petal_width_encoder = SpikingEncoder(x_min=0, x_max=2.5, sigma=sigma, threshold=
 layer = SpikingLayerLeaky(input_dim, output_dim)
 
 # Load iris dataset and plot distribution for each feature
-dataset = pd.read_csv('iris.csv')
+dataset = pd.read_csv('./dataset/iris.csv')
 # split into train and test
 train = dataset.sample(frac=0.8, random_state=0)
 test = dataset.drop(train.index)

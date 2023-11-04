@@ -1,8 +1,9 @@
 import numpy as np
-import pandas as pd
 from tqdm import tqdm
-from mnist_encoder3 import SpikingDataset, SpikingImageEncoder
-from matplotlib import pyplot as plt
+from mnist_encoder import  SpikingImageEncoder
+from mnist_encoder import  SpikingDataset
+# from mnist_encoder_simple import SpikingDatasetSimple as SpikingDataset
+# from mnist_encoder_bins import SpikingDatasetBins as SpikingDataset
 import logging
 import sys
 
@@ -156,11 +157,11 @@ def eval_model(dataset, layers):
 
 import optuna
 def objective(trial):
-    hidden_dim = trial.suggest_int("hidden_dim", 10, 150, log=True)
-    learning_rate = trial.suggest_float("learning_rate", 0.0001, 0.1, log=True)
-    epsilon = trial.suggest_int("epsilon", 1, 10)
-    theta_0 = trial.suggest_float("theta_0", 0.1, 10, log=True)
-    theta_1 = trial.suggest_float("theta_1", 0.1, 10, log=True)
+    hidden_dim = 200
+    learning_rate = 0.002
+    epsilon = trial.suggest_int("epsilon", 1, 4)
+    theta_0 = trial.suggest_float("theta_0", 0.1, 200, log=True)
+    theta_1 = trial.suggest_float("theta_1", 0.1, 200, log=True)
 
     # Define model
     # ╦ ╔╗╔ ╦ ╔╦╗
@@ -192,13 +193,18 @@ def objective(trial):
 
 # Add stream handler of stdout to show the messages
 optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
-study_name = "snn"  # Unique identifier of the study.
-storage_name = "sqlite:///{}.db".format(study_name)
+study_name = "encoder_n_1"  # Unique identifier of the study.
+storage_name = "sqlite:///optuna_studies.db"
 
 
-study = optuna.create_study(study_name=study_name, storage=storage_name, load_if_exists=True, direction="maximize")
+study = optuna.create_study(study_name=study_name,
+                            storage=storage_name,
+                            load_if_exists=True,
+                            direction="maximize",
+                            sampler=optuna.samplers.QMCSampler()
+                            )
 
-study.optimize(objective, n_trials=30)
+study.optimize(objective, n_trials=130)
 
-# Run the dashboard with the command below:
-# optuna-dashboard sqlite:///snn.db
+# Run the dashboard using the command below:
+# optuna-dashboard sqlite:///optuna_studies.db
